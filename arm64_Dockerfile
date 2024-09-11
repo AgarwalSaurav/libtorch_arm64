@@ -1,0 +1,73 @@
+# syntax=docker/dockerfile:1
+
+# NOTE: Building this image require's docker version >= 23.0.
+#
+# For reference:
+# - https://docs.docker.com/build/dockerfile/frontend/#stable-channel
+
+ARG BASE_IMAGE=arm64v8/ubuntu:22.04
+ARG PYTHON_VERSION=3.10
+FROM ${BASE_IMAGE} as dev-base
+ENV BUILD_PYTHONLESS=1
+ENV DESIRED_PYTHON="3.10"
+ENV PYTORCH_BUILD_VERSION=2.4.1
+ENV PYTORCH_BUILD_NUMBER=1
+ENV LIBTORCH_VARIANT=shared-with-deps
+ENV PYTHON_ROOT=/opt/pytorch
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        ccache \
+        cmake \
+        curl \
+        git \
+        libjpeg-dev \
+        libpng-dev && \
+    rm -rf /var/lib/apt/lists/*
+RUN /usr/sbin/update-ccache-symlinks
+RUN mkdir /opt/ccache && ccache --set-config=cache_dir=/opt/ccache
+ENV PATH /opt/conda/bin:$PATH
+
+ARG PYTHON_VERSION=3.10
+# Automatically set by buildx
+ARG TARGETPLATFORM
+# translating Docker's TARGETPLATFORM into miniconda arches
+RUN MINICONDA_ARCH=aarch64 && \
+    curl -fsSL -v -o ~/miniconda.sh -O  "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-${MINICONDA_ARCH}.sh"
+COPY requirements.txt .
+# Manually invoke bash on miniconda script per https://github.com/conda/conda/issues/10431
+RUN chmod +x ~/miniconda.sh && \
+    bash ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh && \
+    /opt/conda/bin/conda install -y python=${PYTHON_VERSION} cmake conda-build pyyaml numpy ipython && \
+    /opt/conda/bin/python -mpip install -r requirements.txt && \
+    /opt/conda/bin/conda clean -ya
+
+WORKDIR /opt/pytorch
+COPY . .
+RUN git submodule update --init --recursive
+
+ARG CMAKE_VARS
+WORKDIR /opt/pytorch
+ENV _GLIBCXX_USE_CXX11_ABI=1
+ENV USE_CUDA=0
+ARG PYTHON_VERSION=3.10
+ENV BUILD_PYTHONLESS=1
+ENV DESIRED_PYTHON="3.10"
+ENV PYTORCH_BUILD_VERSION=2.4.1
+ENV PYTORCH_BUILD_NUMBER=1
+ENV LIBTORCH_VARIANT=shared-with-deps
+ENV PYTORCH_ROOT=/opt/pytorch
+
+# RUN make triton
+RUN --mount=type=cache,target=/opt/ccache \
+    export eval ${CMAKE_VARS} && \
+    export _GLIBCXX_USE_CXX11_ABI=1 && \
+    export USE_CUDA=0 && \
+    CMAKE_PREFIX_PATH="$(dirname $(which conda))/../" \
+    python setup.py install
+
+COPY build_libtorch.sh /build_libtorch.sh
+RUN chmod +x /build_libtorch.sh
+RUN ["/bin/bash", "-c", "/build_libtorch.sh"]
