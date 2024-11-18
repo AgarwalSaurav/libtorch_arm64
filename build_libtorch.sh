@@ -4,7 +4,7 @@
 set -e pipefail
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
-export PYTORCH_BUILD_VERSION=2.4.1
+export PYTORCH_BUILD_VERSION=2.5.1
 export PYTORCH_BUILD_NUMBER=1
 
 export DESIRED_PYTHON=3.10

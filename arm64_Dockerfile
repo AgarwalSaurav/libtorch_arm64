@@ -10,7 +10,7 @@ ARG PYTHON_VERSION=3.10
 FROM ${BASE_IMAGE} as dev-base
 ENV BUILD_PYTHONLESS=1
 ENV DESIRED_PYTHON="3.10"
-ENV PYTORCH_BUILD_VERSION=2.4.1
+ENV PYTORCH_BUILD_VERSION=2.5.1
 ENV PYTORCH_BUILD_NUMBER=1
 ENV LIBTORCH_VARIANT=shared-with-deps
 ENV PYTHON_ROOT=/opt/pytorch
@@ -35,7 +35,7 @@ ARG TARGETPLATFORM
 # translating Docker's TARGETPLATFORM into miniconda arches
 RUN MINICONDA_ARCH=aarch64 && \
     curl -fsSL -v -o ~/miniconda.sh -O  "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-${MINICONDA_ARCH}.sh"
-COPY requirements.txt .
+COPY pytorch/requirements.txt .
 # Manually invoke bash on miniconda script per https://github.com/conda/conda/issues/10431
 RUN chmod +x ~/miniconda.sh && \
     bash ~/miniconda.sh -b -p /opt/conda && \
@@ -45,7 +45,7 @@ RUN chmod +x ~/miniconda.sh && \
     /opt/conda/bin/conda clean -ya
 
 WORKDIR /opt/pytorch
-COPY . .
+COPY pytorch .
 RUN git submodule update --init --recursive
 
 ARG CMAKE_VARS
@@ -55,7 +55,7 @@ ENV USE_CUDA=0
 ARG PYTHON_VERSION=3.10
 ENV BUILD_PYTHONLESS=1
 ENV DESIRED_PYTHON="3.10"
-ENV PYTORCH_BUILD_VERSION=2.4.1
+ENV PYTORCH_BUILD_VERSION=2.5.1
 ENV PYTORCH_BUILD_NUMBER=1
 ENV LIBTORCH_VARIANT=shared-with-deps
 ENV PYTORCH_ROOT=/opt/pytorch
